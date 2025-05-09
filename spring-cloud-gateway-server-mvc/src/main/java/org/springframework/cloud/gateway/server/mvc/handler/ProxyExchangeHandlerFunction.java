@@ -22,7 +22,6 @@ import java.util.function.Function;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.server.mvc.common.MvcUtils;
 import org.springframework.cloud.gateway.server.mvc.filter.HttpHeadersFilter;
@@ -91,6 +90,7 @@ public class ProxyExchangeHandlerFunction
 				.host(uri.getHost())
 				.port(uri.getPort())
 				.replaceQueryParams(serverRequest.params())
+				.encode()
 				.build(encoded)
 				.toUri();
 		// @formatter:on
