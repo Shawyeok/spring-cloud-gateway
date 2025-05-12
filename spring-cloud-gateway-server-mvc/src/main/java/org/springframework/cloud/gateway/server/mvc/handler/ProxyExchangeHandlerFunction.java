@@ -90,14 +90,13 @@ public class ProxyExchangeHandlerFunction
 	public ServerResponse handle(ServerRequest serverRequest) {
 		URI uri = uriResolver.apply(serverRequest);
 		MultiValueMap<String, String> encodedQueryParams = encodeQueryParams(serverRequest.params());
-		boolean encoded = containsEncodedQuery(serverRequest.uri(), encodedQueryParams);
 		// @formatter:off
 		URI url = UriComponentsBuilder.fromUri(serverRequest.uri())
 				.scheme(uri.getScheme())
 				.host(uri.getHost())
 				.port(uri.getPort())
 				.replaceQueryParams(encodedQueryParams)
-				.build(encoded)
+				.build(true)
 				.toUri();
 		// @formatter:on
 

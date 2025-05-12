@@ -118,6 +118,22 @@ public class ProxyExchangeHandlerFunctionTest {
 			});
 	}
 
+	@Test
+	void testPlusRawProxyRequestUriHandling() {
+		restClient.get()
+				.uri(URI.create("/query?q=a'b"))
+				.exchange()
+				.expectStatus()
+				.isOk()
+				.expectBody(Map.class)
+				.consumeWith(res -> {
+					Map<String, List<String>> map = res.getResponseBody();
+					assertThat(map).isNotEmpty();
+					assertThat(map).containsOnlyKeys("q");
+					assertThat(map).containsEntry("q", List.of("a'b"));
+				});
+	}
+
 	@SpringBootConfiguration
 	@EnableAutoConfiguration
 	protected static class TestConfiguration {
