@@ -16,6 +16,12 @@
 
 package org.springframework.cloud.gateway.server.mvc.handler;
 
+import java.io.IOException;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
@@ -25,6 +31,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.startup.Tomcat;
 import org.junit.jupiter.api.Test;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -34,16 +41,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
-import java.io.IOException;
-import java.net.URI;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.uri;
 import static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;
 import static org.springframework.cloud.gateway.server.mvc.handler.HandlerFunctions.http;
@@ -61,38 +59,63 @@ public class ProxyExchangeHandlerFunctionTest {
 	@Test
 	void testSimpleProxyRequestUriHandling() {
 		restClient.get()
-				.uri(URI.create("/query?foo=abc&bar=xyz"))
-				.exchange()
-				.expectStatus()
-				.isOk()
-				.expectBody(Map.class)
-				.consumeWith(res -> {
-					Map<String, List<String>> map = res.getResponseBody();
-					assertNotNull(map);
-					assertEquals(2, map.size());
-					assertTrue(map.containsKey("foo"));
-					assertEquals("abc", map.get("foo").get(0));
-					assertTrue(map.containsKey("bar"));
-					assertEquals("xyz", map.get("bar").get(0));
-				});
+			.uri(URI.create("/query"))
+			.exchange()
+			.expectStatus()
+			.isOk()
+			.expectBody(Map.class)
+			.consumeWith(res -> {
+				Map<String, List<String>> map = res.getResponseBody();
+				assertThat(map).isEmpty();
+			});
+
+		restClient.get()
+			.uri(URI.create("/query?foo=abc&bar=xyz"))
+			.exchange()
+			.expectStatus()
+			.isOk()
+			.expectBody(Map.class)
+			.consumeWith(res -> {
+				Map<String, List<String>> map = res.getResponseBody();
+				assertThat(map).isNotEmpty();
+				assertThat(map).hasSize(2);
+				assertThat(map).containsEntry("foo", List.of("abc"));
+				assertThat(map).containsEntry("bar", List.of("xyz"));
+			});
 	}
 
 	@Test
 	void testAmperEncodedProxyRequestUriHandling() {
 		restClient.get()
-				.uri(URI.create("/query?keyword=k%26r&size=20&sort=asc"))
-				.exchange()
-				.expectStatus()
-				.isOk()
-				.expectBody(Map.class)
-				.consumeWith(res -> {
-					Map<String, List<String>> map = res.getResponseBody();
-					assertNotNull(map);
-					assertEquals(Set.of("keyword", "size", "sort"), map.keySet());
-					assertEquals("k&r", map.get("keyword").get(0));
-					assertEquals("20", map.get("size").get(0));
-					assertEquals("asc", map.get("sort").get(0));
-				});
+			.uri(URI.create("/query?keyword=k%26r&size=20&sort=asc"))
+			.exchange()
+			.expectStatus()
+			.isOk()
+			.expectBody(Map.class)
+			.consumeWith(res -> {
+				Map<String, List<String>> map = res.getResponseBody();
+				assertThat(map).isNotEmpty();
+				assertThat(map).containsOnlyKeys("keyword", "size", "sort");
+				assertThat(map).containsEntry("keyword", List.of("k&r"));
+				assertThat(map).containsEntry("size", List.of("20"));
+				assertThat(map).containsEntry("sort", List.of("asc"));
+			});
+	}
+
+	@Test
+	void testPlusEncodedProxyRequestUriHandling() {
+		restClient.get()
+			.uri(URI.create("/query?q=c%2b%2b"))
+			.exchange()
+			.expectStatus()
+			.isOk()
+			.expectBody(Map.class)
+			.consumeWith(res -> {
+				Map<String, List<String>> map = res.getResponseBody();
+				assertThat(map).isNotEmpty();
+				assertThat(map).containsOnlyKeys("q");
+				assertThat(map).containsEntry("q", List.of("c++"));
+			});
 	}
 
 	@SpringBootConfiguration
@@ -129,7 +152,8 @@ public class ProxyExchangeHandlerFunctionTest {
 			// Add servlet
 			Tomcat.addServlet(ctx, "EchoParameterMapServlet", new HttpServlet() {
 				@Override
-				protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+				protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+						throws ServletException, IOException {
 					resp.setContentType("application/json");
 					resp.setCharacterEncoding("UTF-8");
 					mapper.writeValue(resp.getWriter(), req.getParameterMap());
@@ -140,5 +164,7 @@ public class ProxyExchangeHandlerFunctionTest {
 			tomcat.start();
 			return tomcat;
 		}
+
 	}
+
 }

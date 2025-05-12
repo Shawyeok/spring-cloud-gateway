@@ -17,11 +17,16 @@
 package org.springframework.cloud.gateway.server.mvc.handler;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.server.mvc.common.MvcUtils;
 import org.springframework.cloud.gateway.server.mvc.filter.HttpHeadersFilter;
@@ -30,6 +35,7 @@ import org.springframework.cloud.gateway.server.mvc.filter.HttpHeadersFilter.Res
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.http.HttpHeaders;
+import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.servlet.function.HandlerFunction;
 import org.springframework.web.servlet.function.ServerRequest;
@@ -83,14 +89,14 @@ public class ProxyExchangeHandlerFunction
 	@Override
 	public ServerResponse handle(ServerRequest serverRequest) {
 		URI uri = uriResolver.apply(serverRequest);
-		boolean encoded = containsEncodedQuery(serverRequest.uri(), serverRequest.params());
+		MultiValueMap<String, String> encodedQueryParams = encodeQueryParams(serverRequest.params());
+		boolean encoded = containsEncodedQuery(serverRequest.uri(), encodedQueryParams);
 		// @formatter:off
 		URI url = UriComponentsBuilder.fromUri(serverRequest.uri())
 				.scheme(uri.getScheme())
 				.host(uri.getHost())
 				.port(uri.getPort())
-				.replaceQueryParams(serverRequest.params())
-				.encode()
+				.replaceQueryParams(encodedQueryParams)
 				.build(encoded)
 				.toUri();
 		// @formatter:on
@@ -152,6 +158,17 @@ public class ProxyExchangeHandlerFunction
 		}
 
 		return false;
+	}
+
+	private static MultiValueMap<String, String> encodeQueryParams(MultiValueMap<String, String> params) {
+		Charset charset = StandardCharsets.UTF_8;
+		MultiValueMap<String, String> result = new LinkedMultiValueMap<>(params.size());
+		for (Map.Entry<String, List<String>> entry : params.entrySet()) {
+			for (String value : entry.getValue()) {
+				result.add(URLEncoder.encode(entry.getKey(), charset), URLEncoder.encode(value, charset));
+			}
+		}
+		return result;
 	}
 
 	public interface URIResolver extends Function<ServerRequest, URI> {
