@@ -17,7 +17,6 @@
 package org.springframework.cloud.gateway.server.mvc.handler;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -41,6 +40,7 @@ import org.springframework.web.servlet.function.HandlerFunction;
 import org.springframework.web.servlet.function.ServerRequest;
 import org.springframework.web.servlet.function.ServerResponse;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.util.UriUtils;
 
 public class ProxyExchangeHandlerFunction
 		implements HandlerFunction<ServerResponse>, ApplicationListener<ContextRefreshedEvent> {
@@ -164,7 +164,7 @@ public class ProxyExchangeHandlerFunction
 		MultiValueMap<String, String> result = new LinkedMultiValueMap<>(params.size());
 		for (Map.Entry<String, List<String>> entry : params.entrySet()) {
 			for (String value : entry.getValue()) {
-				result.add(URLEncoder.encode(entry.getKey(), charset), URLEncoder.encode(value, charset));
+				result.add(UriUtils.encode(entry.getKey(), charset), UriUtils.encode(value, charset));
 			}
 		}
 		return result;
